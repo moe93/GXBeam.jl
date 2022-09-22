@@ -138,17 +138,21 @@ state analysis
     ab = linear_acceleration
     αb = angular_acceleration
 
-    # linear and angular velocity
+    # linear and angular velocity (relative to the body frame)
     V1, Ω1 = point_velocities(x, assembly.start[ielem], indices.icol_point)
     V2, Ω2 = point_velocities(x, assembly.stop[ielem], indices.icol_point)
     V = (V1 + V2)/2
     Ω = (Ω1 + Ω2)/2
 
+    # linear and angular velocity (including body frame motion)
+    V += vb + cross(ωb, Δx) + cross(ωb, u)
+    Ω += ωb
+
     # linear and angular momentum
     P = CtCab*mass11*CtCab'*V + CtCab*mass12*CtCab'*Ω
     H = CtCab*mass21*CtCab'*V + CtCab*mass22*CtCab'*Ω
 
-    # linear and angular acceleration
+    # linear and angular acceleration (including body frame motion)
     Vdot = ab + cross(αb, Δx) + cross(αb, u)
     Ωdot = αb
    
@@ -178,13 +182,13 @@ state analysis
         Δx2 = assembly.points[assembly.stop[ielem]]
 
         # linear displacement rates 
-        udot1 = V1 - vb - cross(ωb, Δx1) - cross(ωb, u1)
-        udot2 = V2 - vb - cross(ωb, Δx2) - cross(ωb, u2)
+        udot1 = V1
+        udot2 = V2
         uedot = (udot1 + udot2)/2
 
         # angular displacement rates
-        θdot1 = Qinv1*C1*(Ω1 - ωb)
-        θdot2 = Qinv2*C2*(Ω2 - ωb)
+        θdot1 = Qinv1*C1*Ω1
+        θdot2 = Qinv2*C2*Ω2
         θedot = (θdot1 + θdot2)/2
 
         # change in linear and angular displacement
@@ -522,6 +526,10 @@ mass matrix system
     V1, Ω1 = point_velocities(x, assembly.start[ielem], indices.icol_point)
     V2, Ω2 = point_velocities(x, assembly.stop[ielem], indices.icol_point)
     V, Ω = expanded_element_velocities(x, ielem, indices.icol_elem)
+
+    # linear and angular velocity (including body frame motion)
+    V += vb + cross(ωb, Δx) + cross(ωb, u)
+    Ω += ωb
 
     # linear displacement rates 
     udot1 = C1'*V1 - vb - cross(ωb, Δx1) - cross(ωb, u1)

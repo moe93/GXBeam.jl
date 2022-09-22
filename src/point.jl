@@ -572,13 +572,13 @@ end
 
 """
     static_point_properties(x, indices, force_scaling, assembly, ipoint,  
-        prescribed_conditions, point_masses, gravity)
+        prescribed_conditions, point_masses, gravity, ub, θb)
 
 Calculate/extract the point properties needed to construct the residual for a static 
 analysis
 """
 @inline function static_point_properties(x, indices, force_scaling, assembly, ipoint,  
-    prescribed_conditions, point_masses, gravity)
+    prescribed_conditions, point_masses, gravity, ub, θb)
 
     # mass matrix
     mass = haskey(point_masses, ipoint) ? point_masses[ipoint].mass : @SMatrix zeros(6,6)
@@ -599,25 +599,23 @@ analysis
     F, M = point_loads(x, ipoint, indices.icol_point, force_scaling, prescribed_conditions)
 
     # linear and angular acceleration
-    gvec = SVector{3}(gravity)
+    gvec = get_C(θb)*gravity
 
-    return (; mass11, mass12, mass21, mass22, u, θ, C, F, M, gvec)
+    return (; mass11, mass12, mass21, mass22, ub, θb, u, θ, C, F, M, gvec)
 end
 
 """
     steady_point_properties(x, indices, force_scaling, assembly, ipoint,  
-        prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity, 
-        linear_acceleration=(@SVector zeros(3)), angular_acceleration=(@SVector zeros(3)))
+        prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
 Calculate/extract the point properties needed to construct the residual for a steady state 
 analysis
 """
 @inline function steady_point_properties(x, indices, force_scaling, assembly, ipoint, 
-    prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity, 
-    linear_acceleration=(@SVector zeros(3)), angular_acceleration=(@SVector zeros(3)))
+    prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
     properties = static_point_properties(x, indices, force_scaling, assembly, ipoint,  
-        prescribed_conditions, point_masses, gravity)
+        prescribed_conditions, point_masses, gravity, ub, θb)
 
     @unpack mass11, mass12, mass21, mass22, u, θ, C = properties
 
@@ -627,16 +625,12 @@ analysis
     # distance from the rotation center (in the body frame)
     Δx = assembly.points[ipoint]
 
-    # body frame linear velocity
-    vb = linear_velocity
-    ωb = angular_velocity
-
-    # body frame angular acceleration
-    ab = linear_acceleration
-    αb = angular_acceleration
-
-    # linear and angular velocity
+    # linear and angular velocity  **relative to the body frame**
     V, Ω = point_velocities(x, ipoint, indices.icol_point)
+
+    # add contributions from body frame motion to velocities
+    V += vb + cross(ωb, Δx) + cross(ωb, u)
+    Ω += ωb
 
     # linear and angular momentum
     P = C'*mass11*C*V + C'*mass12*C*Ω
@@ -646,7 +640,7 @@ analysis
     udot = @SVector zeros(3)
     θdot = @SVector zeros(3)
 
-    # linear and angular acceleration
+    # linear and angular acceleration (including body frame motion)
     Vdot = ab + cross(αb, Δx) + cross(αb, u)
     Ωdot = αb
 
@@ -661,16 +655,14 @@ end
 """
     initial_point_properties(x, indices, rate_vars, force_scaling, 
         assembly, ipoint, prescribed_conditions, point_masses, gravity, 
-        linear_velocity, angular_velocity, linear_acceleration, angular_acceleration, 
-        u0, θ0, V0, Ω0, Vdot0, Ωdot0)
+        ub, θb, vb, ωb, ab, αb, u0, θ0, V0, Ω0, Vdot0, Ωdot0)
 
 Calculate/extract the point properties needed to construct the residual for a time domain 
 analysis initialization.
 """
 @inline function initial_point_properties(x, indices, rate_vars,
     force_scaling, assembly, ipoint, prescribed_conditions, point_masses, gravity,
-    linear_velocity, angular_velocity, linear_acceleration, angular_acceleration, 
-    u0, θ0, V0, Ω0, Vdot0, Ωdot0)
+    ub, θb, vb, ωb, ab, αb, u0, θ0, V0, Ω0, Vdot0, Ωdot0)
 
     # mass matrix
     mass = haskey(point_masses, ipoint) ? point_masses[ipoint].mass : @SMatrix zeros(6,6)
@@ -696,18 +688,10 @@ analysis initialization.
     F, M = point_loads(x, ipoint, indices.icol_point, force_scaling, prescribed_conditions)
 
     # gravitational loads
-    gvec = SVector{3}(gravity)
+    gvec = get_C(θb)*gravity
 
     # distance from the rotation center
     Δx = assembly.points[ipoint]
-    
-    # body frame linear velocity
-    vb = linear_velocity
-    ωb = angular_velocity
-
-    # body frame angular acceleration
-    ab = linear_acceleration
-    αb = angular_acceleration
 
     # linear and angular velocity **relative to the body frame**
     V = SVector{3}(V0[ipoint])
@@ -746,18 +730,18 @@ end
 
 """
     newmark_point_properties(x, indices, force_scaling, assembly, ipoint,  
-        prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity, 
+        prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb,  
         udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
 
 Calculate/extract the point properties needed to construct the residual for a newmark-scheme
 time stepping analysis
 """
 @inline function newmark_point_properties(x, indices, force_scaling, assembly, ipoint, 
-    prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity, 
+    prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb, 
     udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
 
     properties = steady_point_properties(x, indices, force_scaling, assembly, ipoint, 
-        prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+        prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
     @unpack ωb, C, mass11, mass12, mass21, mass22, u, θ, V, Ω = properties
 
@@ -768,6 +752,10 @@ time stepping analysis
     # linear and angular velocity rates (in the deformed local frame)
     Vdot = 2/dt*V - SVector{3}(Vdot_init[ipoint])
     Ωdot = 2/dt*Ω - SVector{3}(Ωdot_init[ipoint])
+
+    # linear and angular acceleration (including body frame motion)
+    Vdot += ab + cross(αb, Δx) + cross(αb, u)
+    Ωdot += αb
 
     # linear and angular momentum rates
     Cdot = -C*tilde(Ω - ωb)
@@ -785,24 +773,28 @@ end
 
 """
     dynamic_point_properties(dx, x, indices, force_scaling, assembly, ipoint,  
-        prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+        prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
 Calculate/extract the point properties needed to construct the residual for a dynamic 
 analysis
 """
 @inline function dynamic_point_properties(dx, x, indices, force_scaling, assembly, ipoint, 
-    prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+    prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
     properties = steady_point_properties(x, indices, force_scaling, assembly, ipoint, 
-        prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+        prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
-    @unpack ωb, C, mass11, mass12, mass21, mass22, u, θ, V, Ω = properties
+    @unpack C, mass11, mass12, mass21, mass22, u, θ, V, Ω = properties
 
     # displacement rates
     udot, θdot = point_displacement_rates(dx, ipoint, indices.icol_point, prescribed_conditions)
 
-    # velocity rates
+    # velocity rates **relative to the body frame**
     Vdot, Ωdot = point_velocities(dx, ipoint, indices.icol_point)
+
+    # linear and angular acceleration (including body frame motion)
+    Vdot += ab + cross(αb, Δx) + cross(αb, u)
+    Ωdot += αb
 
     # linear and angular momentum rates
     Cdot = -C*tilde(Ω - ωb)
@@ -820,15 +812,13 @@ end
 
 """
     expanded_steady_point_properties(x, indices, force_scaling, assembly, ipoint,  
-        prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity, 
-        linear_acceleration=(@SVector zeros(3)), angular_acceleration=(@SVector zeros(3)))
+        prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
 Calculate/extract the point properties needed to construct the residual for a constant 
 mass matrix system.
 """
 @inline function expanded_steady_point_properties(x, indices, force_scaling, assembly, 
-    ipoint, prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity, 
-    linear_acceleration=(@SVector zeros(3)), angular_acceleration=(@SVector zeros(3)))
+    ipoint, prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
     # mass matrix
     mass = haskey(point_masses, ipoint) ? point_masses[ipoint].mass : @SMatrix zeros(6,6)
@@ -854,21 +844,17 @@ mass matrix system.
     M = C*M
 
     # gravitational loads
-    gvec = SVector{3}(gravity)
+    gvec = get_C(θb)*gravity
 
     # distance from the rotation center
     Δx = assembly.points[ipoint]
 
-    # body frame linear velocity
-    vb = linear_velocity
-    ωb = angular_velocity
-
-    # body frame angular acceleration
-    ab = linear_acceleration
-    αb = angular_acceleration
-
-    # linear and angular velocity
+    # linear and angular velocity **relative to the body frame**
     V, Ω = point_velocities(x, ipoint, indices.icol_point)
+
+    # add contributions from body frame motion to velocities
+    V += vb + cross(ωb, Δx) + cross(ωb, u)
+    Ω += ωb
 
     # linear and angular momentum
     P = mass11*V + mass12*Ω
@@ -878,7 +864,7 @@ mass matrix system.
     udot = @SVector zeros(3)
     θdot = @SVector zeros(3)
 
-    # linear and angular acceleration
+    # linear and angular acceleration (including body frame motion)
     Vdot = C*(ab + cross(αb, Δx) + cross(αb, u))
     Ωdot = C*αb
    
@@ -899,17 +885,17 @@ Calculate/extract the point properties needed to construct the residual for a co
 mass matrix system.
 """
 @inline function expanded_dynamic_point_properties(dx, x, indices, force_scaling, assembly, 
-    ipoint, prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+    ipoint, prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
     properties = expanded_steady_point_properties(x, indices, force_scaling, assembly, 
-        ipoint, prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+        ipoint, prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
 
     @unpack mass11, mass12, mass21, mass22 = properties
 
     # displacement rates
     udot, θdot = point_displacement_rates(dx, ipoint, indices.icol_point, prescribed_conditions)
 
-    # velocity rates
+    # velocity rates  **relative to the body frame**
     Vdot, Ωdot = point_velocities(dx, ipoint, indices.icol_point)
 
     # momentum rates
