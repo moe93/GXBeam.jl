@@ -119,13 +119,16 @@ function steady_body_residual!(resid, x, indices, ub_p, θb_p, vb_p, ωb_p)
     return resid
 end
 
+const initial_body_residual! = steady_body_residual!
+
 """
     newmark_body_residual!(resid, x, indices, ubdot_init, θbdot_init, vbdot_init, ωbdot_init, dt)
 
 Calculate and insert the residual entries corresponding to the motion of the body frame 
 for a newmark-scheme time marching analysis into the system residual vector.
 """
-function newmark_body_residual!(resid, x, indices, ab_p, αb_p, ubdot_init, θbdot_init, vbdot_init, ωbdot_init, dt)
+function newmark_body_residual!(resid, x, indices, ab_p, αb_p, ubdot_init, θbdot_init, 
+    vbdot_init, ωbdot_init, dt)
     
     # extract body states
     ub, θb = body_displacement(x)
@@ -222,12 +225,12 @@ for a constant mass matrix system into the system residual vector.
 const expanded_dynamic_body_residual! = dynamic_body_residual!
 
 """
-    steady_state_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
+    steady_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p)
 
 Calculate and insert the jacobian entries corresponding to the motion of the body frame 
 for a steady state analysis into the system jacobian matrix.
 """
-function steady_state_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
+function steady_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p)
 
     for i = 1:12
         jacob[i,i] = 1 
@@ -237,12 +240,12 @@ function steady_state_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p
 end
 
 """
-    initial_condition_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
+    initial_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p)
 
 Calculate and insert the jacobian entries corresponding to the motion of the body frame 
 for the initialization of a time domain analysis into the system jacobian vector.
 """
-const initial_condition_body_jacobian! = steady_state_body_jacobian!
+const initial_body_jacobian! = steady_body_jacobian!
 
 """
     newmark_body_jacobian!(jacob, x, indices, ab_p, αb_p, ubdot_init, θbdot_init, 
@@ -364,7 +367,7 @@ function dynamic_body_jacobian!(jacob, dx, x, indices, ab_p, αb_p)
     return jacob
 end
 
-const expanded_steady_body_jacobian! = steady_state_body_jacobian!
+const expanded_steady_body_jacobian! = steady_body_jacobian!
 
 function expanded_dynamic_body_jacobian!(jacob, x, icol_accel, ab_p, αb_p)
     
@@ -381,17 +384,3 @@ function mass_matrix_body_jacobian!(jacob)
     
     return jacob
 end
-Footer
-© 2022 GitHub, Inc.
-Footer navigation
-Terms
-Privacy
-Security
-Status
-Docs
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About

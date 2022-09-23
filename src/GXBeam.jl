@@ -86,6 +86,9 @@ include("system.jl")
 include("input.jl")
 include("output.jl")
 
+# body residuals and jacobians
+include("body.jl")
+
 # point residuals and jacobians
 include("point.jl")
 
