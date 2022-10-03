@@ -42,8 +42,8 @@ iteration procedure converged.
 
 # Linear Solver Keyword Arguments
  - `linearization_state`: Linearization state variables.  Defaults to zeros.
- - `update_linearization`: Flag indicating whether to update the linearization state 
-        variables for a linear analysis with the instantaneous state variables.
+ - `update_linearization = false`: Flag indicating whether to update the linearization 
+        state variables for a linear analysis with the instantaneous state variables.
 """
 function static_analysis(assembly; kwargs...)
 
@@ -260,7 +260,11 @@ function steady_state_analysis!(system::Union{DynamicSystem, ExpandedSystem}, as
     )
 
     # check if provided system is consistent with provided keyword arguments
-    constant_mass_matrix && @assert typeof(system) <: ExpandedSystem
+    if constant_mass_matrix
+        @assert typeof(system) <: ExpandedSystem
+    else
+        @assert typeof(system) <: DynamicSystem
+    end
 
     # reset state, if specified
     if reset_state
@@ -353,6 +357,24 @@ function steady_state_analysis!(system::Union{DynamicSystem, ExpandedSystem}, as
 
         # update state variable rates
         if !constant_mass_matrix
+            # current body frame states
+            ub, θb = body_displacement(x)
+            vb, ωb = body_velocity(x)
+            ab, αb = body_acceleration(system, x; 
+                linear_acceleration = linear_acceleration, 
+                angular_acceleration = angular_acceleration)
+
+            # rotation parameter matrices
+            C = get_C(θb)
+            Qinv = get_Qinv(θb)
+
+            # update stored body frame rate variables
+            system.ubdot = vb
+            system.θbdot = Qinv*C*ωb
+            system.Vbdot = ab
+            system.Ωbdot = αb
+
+            # update stored point rate variables
             @unpack udot, θdot, Vdot, Ωdot = system
             for ipoint = 1:length(assembly.points)
                 udot[ipoint] = @SVector zeros(3)
@@ -362,8 +384,6 @@ function steady_state_analysis!(system::Union{DynamicSystem, ExpandedSystem}, as
             end 
         end
     end
-
-    @assert system.x == x
 
     return system, converged
 end
@@ -412,7 +432,6 @@ with variables in `system` so a copy should be made prior to modifying them.
 # Control Flag Keyword Arguments
  - `structural_damping = false`: Indicates whether to enable structural damping
  - `constant_mass_matrix = false`: Indicates whether to use a constant mass matrix system
- - `show_trace = false`: Flag indicating whether to display the solution progress.
 
 """
 function linearize!(system, assembly;
@@ -431,7 +450,6 @@ function linearize!(system, assembly;
     # control flag keyword arguments
     structural_damping=false,
     constant_mass_matrix=typeof(system) <: ExpandedSystem,
-    show_trace=false,
     )
 
     # check if provided system is consistent with provided keyword arguments
@@ -441,34 +459,38 @@ function linearize!(system, assembly;
     @unpack x, K, M, force_scaling, indices = system
 
     # current parameters
-    pcond = typeof(prescribed_conditions) <: AbstractDict ? prescribed_conditions : prescribed_conditions(time)
-    dload = typeof(distributed_loads) <: AbstractDict ? distributed_loads : distributed_loads(time)
-    pmass = typeof(point_masses) <: AbstractDict ? point_masses : point_masses(time)
-    gvec = typeof(gravity) <: AbstractVector ? SVector{3}(gravity) : SVector{3}(gravity(time))
-    ub_p = typeof(linear_displacement) <: AbstractVector ? SVector{3}(linear_displacement) : SVector{3}(linear_displacement(t))
-    θb_p = typeof(angular_displacement) <: AbstractVector ? SVector{3}(angular_displacement) : SVector{3}(angular_displacement(t))
-    vb_p = typeof(linear_velocity) <: AbstractVector ? SVector{3}(linear_velocity) : SVector{3}(linear_velocity(time))
-    ωb_p = typeof(angular_velocity) <: AbstractVector ? SVector{3}(angular_velocity) : SVector{3}(angular_velocity(time))
-    ab_p = typeof(linear_acceleration) <: AbstractVector ? SVector{3}(linear_acceleration) : SVector{3}(linear_acceleration(time))
-    αb_p = typeof(angular_acceleration) <: AbstractVector ? SVector{3}(angular_acceleration) : SVector{3}(angular_acceleration(time))
+    pcond = typeof(prescribed_conditions) <: AbstractDict ? prescribed_conditions : prescribed_conditions(first(time))
+    dload = typeof(distributed_loads) <: AbstractDict ? distributed_loads : distributed_loads(first(time))
+    pmass = typeof(point_masses) <: AbstractDict ? point_masses : point_masses(first(time))
+    gvec = typeof(gravity) <: AbstractVector ? SVector{3}(gravity) : SVector{3}(gravity(first(time)))
+    ub_p = typeof(linear_displacement) <: AbstractVector ? SVector{3}(linear_displacement) : SVector{3}(linear_displacement(first(time)))
+    θb_p = typeof(angular_displacement) <: AbstractVector ? SVector{3}(angular_displacement) : SVector{3}(angular_displacement(first(time)))
+    vb_p = typeof(linear_velocity) <: AbstractVector ? SVector{3}(linear_velocity) : SVector{3}(linear_velocity(first(time)))
+    ωb_p = typeof(angular_velocity) <: AbstractVector ? SVector{3}(angular_velocity) : SVector{3}(angular_velocity(first(time)))
+    ab_p = typeof(linear_acceleration) <: AbstractVector ? SVector{3}(linear_acceleration) : SVector{3}(linear_acceleration(first(time)))
+    αb_p = typeof(angular_acceleration) <: AbstractVector ? SVector{3}(angular_acceleration) : SVector{3}(angular_acceleration(first(time)))
 
     if constant_mass_matrix
 
         # solve for the system stiffness matrix
         expanded_steady_system_jacobian!(K, x, indices, force_scaling, 
-            structural_damping, assembly, pcond, dload, pmass, gvec, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
+            structural_damping, assembly, pcond, dload, pmass, gvec, ub_p, θb_p, 
+            vb_p, ωb_p, ab_p, αb_p)
 
         # solve for the system mass matrix
-        expanded_system_mass_matrix!(M, indices, force_scaling, assembly, pcond, pmass)
+        expanded_system_mass_matrix!(M, indices, force_scaling, assembly, pcond, pmass;
+            steady=true)
 
     else
 
         # solve for the system stiffness matrix
         steady_system_jacobian!(K, x, indices, force_scaling, 
-            structural_damping, assembly, pcond, dload, pmass, gvec, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
+            structural_damping, assembly, pcond, dload, pmass, gvec, ub_p, θb_p, 
+            vb_p, ωb_p, ab_p, αb_p)
 
         # solve for the system mass matrix
-        system_mass_matrix!(M, x, indices, force_scaling, assembly, pcond, pmass)
+        system_mass_matrix!(M, x, indices, force_scaling, assembly, pcond, pmass;
+            steady=true)
 
     end
 
@@ -737,7 +759,7 @@ converged.
 
 # Linear Solver Keyword Arguments
  - `linearization_state`: Linearization state variables.  Defaults to zeros.
- - `update_linearization`: Flag indicating whether to update the linearization state 
+ - `update_linearization = false`: Flag indicating whether to update the linearization state 
         variables for a linear analysis with the instantaneous state variables.
 
 # Eigenvalue Solution Keyword Arguments
@@ -872,7 +894,6 @@ function eigenvalue_analysis!(system, assembly;
         time=time,
         structural_damping=structural_damping,
         constant_mass_matrix=constant_mass_matrix,
-        show_trace=show_trace,
         )
 
     # solve the eigensystem
@@ -1051,7 +1072,11 @@ function initial_condition_analysis!(system, assembly, t0;
     end
 
     # check if provided system is consistent with provided keyword arguments
-    constant_mass_matrix && @assert typeof(system) <: ExpandedSystem
+    if constant_mass_matrix
+        @assert typeof(system) <: ExpandedSystem
+    else
+        @assert typeof(system) <: DynamicSystem
+    end
 
     # reset state, if specified
     if reset_state
@@ -1112,9 +1137,10 @@ function initial_condition_analysis!(system, assembly, t0;
     # --- Determine whether Vdot and Ωdot may be found using the equilibrium equations --- #
 
     # NOTE: Our system of equations cannot be solved for Vdot and Ωdot if the corresponding 
-    # rows and columns of the mass matrix are zero.
+    # rows and columns of the mass matrix are zero.  
 
-    # Fortunately, though we cannot solve for these variables, their values are not used.
+    # Fortunately, though we cannot solve for these variables (because they don't appear 
+    # in the governing equations), their values are not used.
 
     # construct `rate_vars` vector
     system_mass_matrix!(system.M, x, indices, force_scaling, assembly, pcond, pmass)
@@ -1193,6 +1219,25 @@ function initial_condition_analysis!(system, assembly, t0;
         # set the convergence flag
         converged = result.f_converged
     end
+
+    # --- Save state and rate variables associated with the body frame motion --- #
+
+    # current body frame states
+    ub, θb = body_displacement(x)
+    vb, ωb = body_velocity(x)
+    ab, αb = body_acceleration(system, x; 
+        linear_acceleration = linear_acceleration, 
+        angular_acceleration = angular_acceleration)
+
+    # rotation parameter matrices
+    C = get_C(θb)
+    Qinv = get_Qinv(θb)
+
+    # update stored body frame rate variables
+    system.ubdot = vb
+    system.θbdot = Qinv*C*ωb
+    system.Vbdot = ab
+    system.Ωbdot = αb
 
     # --- Save state and rate variables associated with each point --- #
 

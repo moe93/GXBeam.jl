@@ -229,6 +229,10 @@ end
 
     # --- Newmark Scheme Time-Marching Analysis --- #
 
+    ubdot = SVector{3}(rand(RNG, 3))
+    θbdot = SVector{3}(rand(RNG, 3))
+    vbdot = SVector{3}(rand(RNG, 3))
+    ωbdot = SVector{3}(rand(RNG, 3))
     udot = [SVector{3}(rand(RNG, 3)) for ipoint = 1:length(assembly.points)]
     θdot = [SVector{3}(rand(RNG, 3)) for ipoint = 1:length(assembly.points)]
     Vdot = [SVector{3}(rand(RNG, 3)) for ipoint = 1:length(assembly.points)]
@@ -240,11 +244,11 @@ end
 
     f = (x) -> GXBeam.newmark_system_residual!(similar(x), x, indices, 
         force_scaling, structural_damping, assembly, pcond, dload, pmass, gvec, 
-        ab_p, αb_p, udot, θdot, Vdot, Ωdot, dt)
+        ab_p, αb_p, ubdot, θbdot, vbdot, ωbdot, udot, θdot, Vdot, Ωdot, dt)
 
     GXBeam.newmark_system_jacobian!(J, x, indices, force_scaling, 
         structural_damping, assembly, pcond, dload, pmass, gvec, 
-        ab_p, αb_p, udot, θdot, Vdot, Ωdot, dt)
+        ab_p, αb_p, ubdot, θbdot, vbdot, ωbdot, udot, θdot, Vdot, Ωdot, dt)
 
     J_fd = ForwardDiff.jacobian(f, x)
 
@@ -291,7 +295,7 @@ end
         ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
     GXBeam.expanded_steady_system_jacobian!(J, x, indices, force_scaling, 
-        structural_damping, assembly, pcond, dload, pmass, gvec,         
+        structural_damping, assembly, pcond, dload, pmass, gvec, 
         ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
     J_fd = ForwardDiff.jacobian(f, x)

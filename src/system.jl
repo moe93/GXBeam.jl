@@ -577,8 +577,7 @@ function copy_state!(system1, system2, assembly;
                     structural_damping, assembly, ielem, pcond, gvec, xb_p, θb_p, vb_p, ωb_p, 
                     ab_p, αb_p)
 
-                @unpack Δx, ωb, ab, αb, u, C, Cab, CtCab, mass11, mass12, mass21, mass22, 
-                    V1, V2, Ω1, Ω2, V, Ω = properties
+                @unpack Δx, ωb, ab, αb, u, CtCab, mass11, mass12, mass21, mass22, Vb, Ωb, V, Ω = properties
 
                 # linear and angular velocity rates
                 Vb1dot = system2.Vdot[assembly.start[ielem]]
@@ -595,7 +594,7 @@ function copy_state!(system1, system2, assembly;
                 Ωdot = Ωbdot + αb
 
                 # linear and angular momentum rates
-                CtCabdot = tilde(Ω - ωb)*CtCab
+                CtCabdot = tilde(Ωb)*CtCab
                 
                 Pdot = CtCab*mass11*CtCab'*Vdot + CtCab*mass12*CtCab'*Ωdot +
                     CtCab*mass11*CtCabdot'*V + CtCab*mass12*CtCabdot'*Ω +
@@ -724,8 +723,6 @@ function steady_system_residual!(resid, x, indices, force_scaling,
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
-    resid .= 0
-
     # set prescribed accelerations from state variables (if necessary)
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
@@ -853,13 +850,13 @@ end
 """
     dynamic_system_residual!(resid, dx, x, indices, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
-        point_masses, gravity, linear_velocity, angular_velocity)
+        point_masses, gravity, ab_p, αb_p)
 
 Populate the system residual vector `resid` for a general dynamic analysis.
 """
 function dynamic_system_residual!(resid, dx, x, indices, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
-    gravity, linear_velocity, angular_velocity)
+    gravity, ab_p, αb_p)
 
     # set prescribed displacements from state variables
     ub_p, θb_p = body_displacement(x)
@@ -871,19 +868,20 @@ function dynamic_system_residual!(resid, dx, x, indices, force_scaling,
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
     # body residuals
-    dynamic_body_residuals!(resid, dx, x)
+    dynamic_body_residual!(resid, dx, x, indices, ab_p, αb_p)
 
     # contributions to the residual vector from points
     for ipoint = 1:length(assembly.points)
         dynamic_point_residual!(resid, dx, x, indices, force_scaling, assembly, 
-            ipoint, prescribed_conditions, point_masses, gravity, linear_velocity, angular_velocity)
+            ipoint, prescribed_conditions, point_masses, gravity, 
+            ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
     # contributions to the residual vector from elements
     for ielem = 1:length(assembly.elements)
         dynamic_element_residual!(resid, dx, x, indices, force_scaling, structural_damping, 
             assembly, ielem, prescribed_conditions, distributed_loads, gravity, 
-            linear_velocity, angular_velocity)
+            ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, )
     end
     
     return resid
@@ -898,24 +896,27 @@ Populate the system residual vector `resid` for a constant mass matrix system.
 """
 function expanded_steady_system_residual!(resid, x, indices, force_scaling, structural_damping, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
-    linear_velocity, angular_velocity, linear_acceleration, angular_acceleration)
+    ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
+
+    resid .= 0
 
     # set prescribed accelerations from state variables (if necessary)
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
-    # body residuals
-    expanded_steady_body_residuals!(resid, ub, θb, vb, ωb, ab, αb)
+    # contributions to the residual vector from body motion
+    steady_body_residual!(resid, x, indices, ub_p, θb_p, vb_p, ωb_p)
 
     # point residuals
     for ipoint = 1:length(assembly.points)
         expanded_steady_point_residual!(resid, x, indices, force_scaling, assembly, ipoint, 
-            prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
+            prescribed_conditions, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
     # element residuals
     for ielem = 1:length(assembly.elements)
         expanded_steady_element_residual!(resid, x, indices, force_scaling, structural_damping, 
-            assembly, ielem, prescribed_conditions, distributed_loads, gravity, ub, θb, vb, ωb, ab, αb)
+            assembly, ielem, prescribed_conditions, distributed_loads, gravity, 
+            ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
     return resid
@@ -932,6 +933,8 @@ function expanded_dynamic_system_residual!(resid, dx, x, indices, force_scaling,
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ab_p, αb_p)
 
+    resid .= 0
+
     # set prescribed displacements from state variables
     ub_p, θb_p = body_displacement(x)
 
@@ -942,18 +945,18 @@ function expanded_dynamic_system_residual!(resid, dx, x, indices, force_scaling,
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
     # body residuals
-    expanded_dynamic_body_residuals!()
+    dynamic_body_residual!(resid, dx, x, indices, ab_p, αb_p)
 
     # point residuals
     for ipoint = 1:length(assembly.points)
         expanded_dynamic_point_residual!(resid, dx, x, indices, force_scaling, assembly, ipoint, 
-            prescribed_conditions, point_masses, gravity, ub, θb, vb, ωb, ab, αb)
+            prescribed_conditions, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
     # element residuals
     for ielem = 1:length(assembly.elements)
         expanded_dynamic_element_residual!(resid, dx, x, indices, force_scaling, structural_damping, 
-            assembly, ielem, prescribed_conditions, distributed_loads, gravity, ub, θb, vb, ωb, ab, αb)
+            assembly, ielem, prescribed_conditions, distributed_loads, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
     return resid
@@ -1112,25 +1115,27 @@ end
 """
     newmark_system_jacobian!(jacob, x, indices, force_scaling, structural_damping, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
-        ab_p, αb_p, udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
+        ab_p, αb_p, ubdot_init, θbdot_init, vbdot_init, ωbdot_init, 
+        udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
 
 Populate the system jacobian matrix `jacob` for a Newmark scheme time marching analysis.
 """
 function newmark_system_jacobian!(jacob, x, indices, force_scaling, structural_damping, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
-    ab_p, αb_p, udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
+    ab_p, αb_p, ubdot_init, θbdot_init, vbdot_init, ωbdot_init, 
+    udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
     
     jacob .= 0
 
-    # set prescribed displacements from state variables
     ub_p, θb_p = body_displacement(x)
 
-    # set prescribed velocities from state variables
     vb_p, ωb_p = body_velocity(x)
 
-    # set prescribed accelerations from state variables (if necessary)
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
+    newmark_body_jacobian!(jacob, x, indices, ab_p, αb_p, ubdot_init, θbdot_init, 
+        vbdot_init, ωbdot_init, dt)
+    
     for ipoint = 1:length(assembly.points)
         newmark_point_jacobian!(jacob, x, indices, force_scaling, assembly, ipoint, 
             prescribed_conditions, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p,
@@ -1165,6 +1170,8 @@ function dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling,
 
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
+    dynamic_body_jacobian!(jacob, dx, x, indices, ab_p, αb_p)
+
     for ipoint = 1:length(assembly.points)
         dynamic_point_jacobian!(jacob, dx, x, indices, force_scaling, assembly, 
             ipoint, prescribed_conditions, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, 
@@ -1195,6 +1202,8 @@ function expanded_steady_system_jacobian!(jacob, x, indices, force_scaling,
     jacob .= 0
 
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
+
+    steady_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p)
 
     for ipoint = 1:length(assembly.points)
         expanded_steady_point_jacobian!(jacob, x, indices, force_scaling, 
@@ -1230,6 +1239,8 @@ function expanded_dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling,
 
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
+    dynamic_body_jacobian!(jacob, dx, x, indices, ab_p, αb_p)
+
     for ipoint = 1:length(assembly.points)
         expanded_dynamic_point_jacobian!(jacob, dx, x, indices, force_scaling, assembly, 
             ipoint, prescribed_conditions, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
@@ -1246,32 +1257,36 @@ end
 
 """
     system_mass_matrix!(jacob, x, indices, force_scaling,  assembly, prescribed_conditions, 
-        point_masses)
+        point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates.
 """
 function system_mass_matrix!(jacob, x, indices, force_scaling, assembly, 
-    prescribed_conditions, point_masses)
+    prescribed_conditions, point_masses; steady=false)
 
     jacob .= 0
 
     gamma = 1
 
     system_mass_matrix!(jacob, gamma, x, indices, force_scaling,  assembly, 
-        prescribed_conditions, point_masses)
+        prescribed_conditions, point_masses; steady=steady)
 
     return jacob
 end
 
 """
     system_mass_matrix!(jacob, gamma, x, indices, force_scaling, assembly, 
-        prescribed_conditions, point_masses)
+        prescribed_conditions, point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates and 
 add the result multiplied by `gamma` to `jacob`.
 """
 function system_mass_matrix!(jacob, gamma, x, indices, force_scaling, assembly, 
-    prescribed_conditions, point_masses)
+    prescribed_conditions, point_masses; steady=false)
+
+    if !steady
+        mass_matrix_body_jacobian!(jacob)
+    end
 
     for ipoint = 1:length(assembly.points)
         mass_matrix_point_jacobian!(jacob, gamma, x, indices, force_scaling, assembly, ipoint, 
@@ -1289,14 +1304,16 @@ end
 """
     expanded_system_mass_matrix(system, assembly;
         prescribed_conditions=Dict{Int, PrescribedConditions}(), 
-        point_masses=Dict{Int, PointMass}())
+        point_masses=Dict{Int, PointMass}(),
+        steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates for a 
 constant mass matrix system.
 """
 function expanded_system_mass_matrix(system, assembly;
     prescribed_conditions=Dict{Int, PrescribedConditions}(), 
-    point_masses=Dict{Int, PointMass}())
+    point_masses=Dict{Int, PointMass}(),
+    steady=false)
 
     @unpack expanded_indices, force_scaling = system
 
@@ -1307,39 +1324,44 @@ function expanded_system_mass_matrix(system, assembly;
     pcond = typeof(prescribed_conditions) <: AbstractDict ? prescribed_conditions : prescribed_conditions(0)
     pmass = typeof(point_masses) <: AbstractDict ? point_masses : point_masses(0)
 
-    expanded_system_mass_matrix!(jacob, gamma, expanded_indices, force_scaling, assembly, pcond, pmass) 
+    expanded_system_mass_matrix!(jacob, gamma, expanded_indices, force_scaling, assembly, 
+        pcond, pmass; steady=steady) 
 
     return jacob
 end
 
 """
-    expanded_system_mass_matrix!(jacob, indices, force_scaling,  assembly, prescribed_conditions, 
-        point_masses)
+    expanded_system_mass_matrix!(jacob, indices, force_scaling, assembly,
+        prescribed_conditions, point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates.
 """
 function expanded_system_mass_matrix!(jacob, indices, force_scaling, assembly, 
-    prescribed_conditions, point_masses)
+    prescribed_conditions, point_masses; steady=false)
 
     jacob .= 0
 
     gamma = 1
 
     expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, assembly, 
-        prescribed_conditions, point_masses)
+        prescribed_conditions, point_masses; steady=steady)
 
     return jacob
 end
 
 """
     expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, assembly, 
-        prescribed_conditions, point_masses)
+        prescribed_conditions, point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates and 
 add the result multiplied by `gamma` to `jacob`.
 """
 function expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, assembly, 
-    prescribed_conditions, point_masses)
+    prescribed_conditions, point_masses; steady=false)
+
+    if !steady
+        mass_matrix_body_jacobian!(jacob)
+    end
 
     for ipoint = 1:length(assembly.points)
         expanded_mass_matrix_point_jacobian!(jacob, gamma, indices, force_scaling, assembly, 

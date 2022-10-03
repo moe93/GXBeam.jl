@@ -1,4 +1,22 @@
 """
+    BodyState
+
+Holds the state variables for the body frame
+
+# Fields:
+ - `u`: Linear deflection
+ - `theta`: Angular deflection (Wiener-Milenkovic parameters)
+ - `V`: Linear velocity
+ - `Omega`: Angular velocity
+"""
+struct BodyState{TF}
+    u::SVector{3, TF}
+    theta::SVector{3, TF}
+    V::SVector{3, TF}
+    Omega::SVector{3, TF}
+end
+
+"""
     PointState
 
 Holds the state variables for a point
@@ -51,11 +69,12 @@ Struct for storing state variables for the points and elements in an assembly.
  - `points::TP`: Array of [`PointState`](@ref) for each point in the assembly
  - `elements::TE`: Array of [`ElementState`](@ref) for each element in the assembly
 """
-struct AssemblyState{TF, TP<:AbstractVector{PointState{TF}}, TE<:AbstractVector{ElementState{TF}}}
+struct AssemblyState{TF, TB<:BodyState{TF}, TP<:AbstractVector{PointState{TF}}, TE<:AbstractVector{ElementState{TF}}}
+    body::TB
     points::TP
     elements::TE
 end
-Base.eltype(::AssemblyState{TF, TP, TE}) where {TF, TP, TE} = TF
+Base.eltype(::AssemblyState{TF, TB, TP, TE}) where {TF, TB, TP, TE} = TF
 
 """
     AssemblyState(system, assembly, x = system.x; prescribed_conditions = Dict())
@@ -69,11 +88,40 @@ analysis.
 """
 function AssemblyState(system, assembly, x = system.x; prescribed_conditions = Dict{Int,PrescribedConditions{Float64}}())
 
+    body = extract_body_states(system, x)
+
     points = extract_point_states(system, assembly, x; prescribed_conditions)
 
     elements = extract_element_states(system, assembly, x; prescribed_conditions)
 
-    return AssemblyState{eltype(x), typeof(points), typeof(elements)}(points, elements)
+    return AssemblyState{eltype(x), typeof(body), typeof(points), typeof(elements)}(body, points, elements)
+end
+
+"""
+    extract_body_states(system, assembly, ipoint, x = system.x;
+        prescribed_conditions = Dict{Int,PrescribedConditions{Float64}}())
+
+Return the state variables corresponding to the motion of the body frame, given the 
+solution vector `x`.
+"""
+extract_body_states
+
+function extract_body_states(system::StaticSystem, x = system.x)
+
+    u = @SVector zeros(3)
+    θ = @SVector zeros(3)
+    V = @SVector zeros(3)
+    Ω = @SVector zeros(3)
+
+    return BodyState(u, θ, V, Ω)
+end
+
+function extract_body_states(system::Union{DynamicSystem,ExpandedSystem}, x = system.x)
+
+    u, θ = body_displacement(x)
+    V, Ω = body_velocity(x)
+
+    return BodyState(u, θ, V, Ω)
 end
 
 """
