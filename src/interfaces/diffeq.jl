@@ -129,6 +129,9 @@ function SciMLBase.ODEFunction(system::AbstractSystem, assembly, pfunc=(p, t) ->
             # extract parameters from the parameter vector using `pfunc`
             pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
 
+            # update acceleration state variable indices
+            update_body_acceleration_indices!(indices, pcond)
+
             # calculate residual
             expanded_dynamic_system_residual!(resid, du, u, indices, two_dimensional, force_scaling, 
                 structural_damping, assembly, pcond, dload, pmass, gvec, ab_p, αb_p)
@@ -151,6 +154,9 @@ function SciMLBase.ODEFunction(system::AbstractSystem, assembly, pfunc=(p, t) ->
             # extract parameters from the parameter vector using `pfunc`
             pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
 
+            # update acceleration state variable indices
+            update_body_acceleration_indices!(indices, pcond)
+
             # calculate jacobian
             expanded_dynamic_system_jacobian!(J, du, u, indices, two_dimensional, force_scaling, 
                 structural_damping, assembly, pcond, dload, pmass, gvec, ab_p, αb_p)
@@ -170,6 +176,7 @@ function SciMLBase.ODEFunction(system::AbstractSystem, assembly, pfunc=(p, t) ->
     else
 
         indices = SystemIndices(assembly.start, assembly.stop, static=false, expanded=false)
+        update_body_acceleration_indices!(indices, pcond)
         du = zeros(indices.nstates)
         u = rand(indices.nstates)
 
@@ -179,6 +186,9 @@ function SciMLBase.ODEFunction(system::AbstractSystem, assembly, pfunc=(p, t) ->
             # extract parameters from the parameter vector using `pfunc`
             pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
     
+            # update acceleration state variable indices
+            update_body_acceleration_indices!(indices, pcond)
+
             # calculate residual
             dynamic_system_residual!(resid, du, u, indices, two_dimensional, force_scaling, 
                 structural_damping, assembly, pcond, dload, pmass, gvec, ab_p, αb_p)
@@ -195,6 +205,9 @@ function SciMLBase.ODEFunction(system::AbstractSystem, assembly, pfunc=(p, t) ->
             # extract parameters from the parameter vector using `pfunc`
             pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
     
+            # update acceleration state variable indices
+            update_body_acceleration_indices!(indices, pcond)
+
             # calculate mass matrix
             system_mass_matrix!(M, u, indices, two_dimensional, force_scaling, assembly, pcond, pmass)
     
@@ -214,6 +227,9 @@ function SciMLBase.ODEFunction(system::AbstractSystem, assembly, pfunc=(p, t) ->
 
             # extract parameters from the parameter vector using `pfunc`
             pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
+
+            # update acceleration state variable indices
+            update_body_acceleration_indices!(indices, pcond)
 
             # calculate jacobian
             dynamic_system_jacobian!(J, du, u, indices, two_dimensional, force_scaling, 
@@ -339,6 +355,9 @@ function SciMLBase.DAEFunction(system::DynamicSystem, assembly, pfunc = (p, t) -
         # extract parameters from the parameter vector using `pfunc`
         pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
 
+        # update acceleration state variable indices
+        update_body_acceleration_indices!(indices, pcond)
+
         # calculate residual
         dynamic_system_residual!(resid, du, u, indices, two_dimensional, force_scaling, 
             structural_damping, assembly, pcond, dload, pmass, gvec, ab_p, αb_p)
@@ -354,6 +373,9 @@ function SciMLBase.DAEFunction(system::DynamicSystem, assembly, pfunc = (p, t) -
 
         # extract parameters from the parameter vector using `pfunc`
         pcond, dload, pmass, gvec, ab_p, αb_p = extract_parameters(pfunc, p, t)
+
+        # update acceleration state variable indices
+        update_body_acceleration_indices!(indices, pcond)
 
         # calculate jacobian
         dynamic_system_jacobian!(J, du, u, indices, two_dimensional, force_scaling, 
