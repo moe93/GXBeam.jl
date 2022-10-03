@@ -691,12 +691,12 @@ function copy_state!(system1, system2, assembly;
 end
 
 """
-    static_system_residual!(resid, x, indices, force_scaling, 
+    static_system_residual!(resid, x, indices, two_dimensional, force_scaling, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity)
 
 Populate the system residual vector `resid` for a static analysis
 """
-function static_system_residual!(resid, x, indices, force_scaling, 
+function static_system_residual!(resid, x, indices, two_dimensional, force_scaling, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity)
 
     for ipoint = 1:length(assembly.points)
@@ -709,17 +709,21 @@ function static_system_residual!(resid, x, indices, force_scaling,
             prescribed_conditions, distributed_loads, gravity)
     end
 
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
+
     return resid
 end
 
 """
-    steady_system_residual!(resid, x, indices, force_scaling, 
+    steady_system_residual!(resid, x, indices, two_dimensional, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
         point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
 Populate the system residual vector `resid` for a steady state analysis
 """
-function steady_system_residual!(resid, x, indices, force_scaling, 
+function steady_system_residual!(resid, x, indices, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
@@ -742,20 +746,24 @@ function steady_system_residual!(resid, x, indices, force_scaling,
             ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
 
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
+
     return resid
 end
 
 """
     initial_system_residual!(resid, x, indices, rate_vars1, rate_vars2, 
-        force_scaling, structural_damping, assembly, prescribed_conditions, 
-        distributed_loads, point_masses, gravity, , ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, 
+        two_dimensional, force_scaling, structural_damping, assembly, prescribed_conditions, 
+        distributed_loads, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, 
         u0, θ0, V0, Ω0, Vdot0, Ωdot0)
 
 Populate the system residual vector `resid` for the initialization of a time domain 
 simulation.
 """
 function initial_system_residual!(resid, x, indices, rate_vars1, rate_vars2,
-    force_scaling, structural_damping, assembly, prescribed_conditions, 
+    two_dimensional, force_scaling, structural_damping, assembly, prescribed_conditions, 
     distributed_loads, point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, 
     u0, θ0, V0, Ω0, Vdot0, Ωdot0)
 
@@ -803,17 +811,21 @@ function initial_system_residual!(resid, x, indices, rate_vars1, rate_vars2,
         end
     end
 
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
+
     return resid
 end
 
 """
-    newmark_system_residual!(resid, x, indices, force_scaling, structural_damping, 
+    newmark_system_residual!(resid, x, indices, two_dimensional, force_scaling, structural_damping, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity, ab_p, αb_p, 
         ubdot_init, θbdot_init, vbdot_init, ωbdot_init, udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
 
 Populate the system residual vector `resid` for a Newmark scheme time marching analysis.
 """
-function newmark_system_residual!(resid, x, indices, force_scaling, structural_damping, 
+function newmark_system_residual!(resid, x, indices, two_dimensional, force_scaling, structural_damping, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity, ab_p, αb_p, 
     ubdot_init, θbdot_init, vbdot_init, ωbdot_init, udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
     
@@ -844,17 +856,21 @@ function newmark_system_residual!(resid, x, indices, force_scaling, structural_d
             ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, Vdot_init, Ωdot_init, dt)
     end
     
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
+
     return resid
 end
 
 """
-    dynamic_system_residual!(resid, dx, x, indices, force_scaling, 
+    dynamic_system_residual!(resid, dx, x, indices, two_dimensional, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
         point_masses, gravity, ab_p, αb_p)
 
 Populate the system residual vector `resid` for a general dynamic analysis.
 """
-function dynamic_system_residual!(resid, dx, x, indices, force_scaling, 
+function dynamic_system_residual!(resid, dx, x, indices, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ab_p, αb_p)
 
@@ -883,18 +899,22 @@ function dynamic_system_residual!(resid, dx, x, indices, force_scaling,
             assembly, ielem, prescribed_conditions, distributed_loads, gravity, 
             ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, )
     end
+
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
     
     return resid
 end
 
 """
-    expanded_steady_system_residual!(resid, x, indices, force_scaling, structural_damping, 
+    expanded_steady_system_residual!(resid, x, indices, two_dimensional, force_scaling, structural_damping, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
         linear_velocity, angular_velocity, linear_acceleration, angular_acceleration)
 
 Populate the system residual vector `resid` for a constant mass matrix system.
 """
-function expanded_steady_system_residual!(resid, x, indices, force_scaling, structural_damping, 
+function expanded_steady_system_residual!(resid, x, indices, two_dimensional, force_scaling, structural_damping, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
     ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
@@ -918,18 +938,22 @@ function expanded_steady_system_residual!(resid, x, indices, force_scaling, stru
             assembly, ielem, prescribed_conditions, distributed_loads, gravity, 
             ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
+
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
     
     return resid
 end
 
 """
-    expanded_dynamic_system_residual!(resid, dx, x, indices, force_scaling, 
+    expanded_dynamic_system_residual!(resid, dx, x, indices, two_dimensional, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
         point_masses, gravity, ab_p, αb_p)
 
 Populate the system residual vector `resid` for a constant mass matrix system.
 """
-function expanded_dynamic_system_residual!(resid, dx, x, indices, force_scaling, 
+function expanded_dynamic_system_residual!(resid, dx, x, indices, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ab_p, αb_p)
 
@@ -959,16 +983,20 @@ function expanded_dynamic_system_residual!(resid, dx, x, indices, force_scaling,
             assembly, ielem, prescribed_conditions, distributed_loads, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
+    if two_dimensional
+        two_dimensional_residual!(resid, x, indices)
+    end
+
     return resid
 end
 
 """
-    static_system_jacobian!(jacob, x, indices, force_scaling, 
+    static_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity)
 
 Populate the system jacobian matrix `jacob` for a static analysis
 """
-function static_system_jacobian!(jacob, x, indices, force_scaling, 
+function static_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity)
 
     jacob .= 0
@@ -982,18 +1010,22 @@ function static_system_jacobian!(jacob, x, indices, force_scaling,
         static_element_jacobian!(jacob, x, indices, force_scaling, assembly, ielem, 
             prescribed_conditions, distributed_loads, gravity)
     end
+
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
     
     return jacob
 end
 
 """
-    steady_system_jacobian!(jacob, x, indices, force_scaling, 
+    steady_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
         point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
 Populate the system jacobian matrix `jacob` for a steady-state analysis
 """
-function steady_system_jacobian!(jacob, x, indices, force_scaling, structural_damping, 
+function steady_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, structural_damping, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
     ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
@@ -1014,12 +1046,16 @@ function steady_system_jacobian!(jacob, x, indices, force_scaling, structural_da
             assembly, ielem, prescribed_conditions, distributed_loads, gravity, ub_p, θb_p, 
             vb_p, ωb_p, ab_p, αb_p)
     end
+
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
     
     return jacob
 end
 
 """
-    initial_system_jacobian!(jacob, x, indices, rate_vars1, rate_vars2, force_scaling, 
+    initial_system_jacobian!(jacob, x, indices, rate_vars1, rate_vars2, two_dimensional, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
         point_masses, gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, 
         angular_acceleration, u0, θ0, V0, Ω0, Vdot0, Ωdot0)
@@ -1027,7 +1063,7 @@ end
 Populate the system jacobian matrix `jacob` for the initialization of a time domain 
 simulation.
 """
-function initial_system_jacobian!(jacob, x, indices, rate_vars1, rate_vars2, force_scaling, 
+function initial_system_jacobian!(jacob, x, indices, rate_vars1, rate_vars2, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p,
     u0, θ0, V0, Ω0, Vdot0, Ωdot0)
@@ -1109,18 +1145,22 @@ function initial_system_jacobian!(jacob, x, indices, rate_vars1, rate_vars2, for
         end
     end
 
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
+
     return jacob
 end
 
 """
-    newmark_system_jacobian!(jacob, x, indices, force_scaling, structural_damping, 
+    newmark_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, structural_damping, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
         ab_p, αb_p, ubdot_init, θbdot_init, vbdot_init, ωbdot_init, 
         udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
 
 Populate the system jacobian matrix `jacob` for a Newmark scheme time marching analysis.
 """
-function newmark_system_jacobian!(jacob, x, indices, force_scaling, structural_damping, 
+function newmark_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, structural_damping, 
     assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
     ab_p, αb_p, ubdot_init, θbdot_init, vbdot_init, ωbdot_init, 
     udot_init, θdot_init, Vdot_init, Ωdot_init, dt)
@@ -1147,18 +1187,22 @@ function newmark_system_jacobian!(jacob, x, indices, force_scaling, structural_d
             assembly, ielem, prescribed_conditions, distributed_loads, gravity, 
             ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p, Vdot_init, Ωdot_init, dt)
     end
+
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
     
     return jacob
 end
 
 """
-    dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling, 
+    dynamic_system_jacobian!(jacob, dx, x, indices, two_dimensional, force_scaling, 
         structural_damping, assembly, prescribed_conditions, distributed_loads, 
         point_masses, gravity, ab_p, αb_p)
 
 Populate the system jacobian matrix `jacob` for a general dynamic analysis.
 """
-function dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling, 
+function dynamic_system_jacobian!(jacob, dx, x, indices, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ab_p, αb_p)
     
@@ -1184,18 +1228,22 @@ function dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling,
             vb_p, ωb_p, ab_p, αb_p)
     end
     
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
+
     return jacob
 end
 
 """
-    expanded_steady_system_jacobian!(jacob, x, indices, force_scaling, structural_damping, 
+    expanded_steady_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, structural_damping, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity, 
         ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
 Populate the system jacobian matrix `jacob` for a general dynamic analysis with a 
 constant mass matrix system.
 """
-function expanded_steady_system_jacobian!(jacob, x, indices, force_scaling, 
+function expanded_steady_system_jacobian!(jacob, x, indices, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     
@@ -1216,18 +1264,22 @@ function expanded_steady_system_jacobian!(jacob, x, indices, force_scaling,
             structural_damping, assembly, ielem, prescribed_conditions, distributed_loads, 
             gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
-    
+   
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
+
     return jacob
 end
 
 """
-    expanded_dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling, structural_damping, 
+    expanded_dynamic_system_jacobian!(jacob, dx, x, indices, two_dimensional, force_scaling, structural_damping, 
         assembly, prescribed_conditions, distributed_loads, point_masses, gravity, ab_p, αb_p)
 
 Populate the system jacobian matrix `jacob` for a general dynamic analysis with a 
 constant mass matrix system.
 """
-function expanded_dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling, 
+function expanded_dynamic_system_jacobian!(jacob, dx, x, indices, two_dimensional, force_scaling, 
     structural_damping, assembly, prescribed_conditions, distributed_loads, point_masses, 
     gravity, ab_p, αb_p)
     
@@ -1252,36 +1304,40 @@ function expanded_dynamic_system_jacobian!(jacob, dx, x, indices, force_scaling,
             gravity, ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
     end
     
+    if two_dimensional
+        two_dimensional_jacobian!(jacob, x, indices)
+    end
+
     return jacob
 end
 
 """
-    system_mass_matrix!(jacob, x, indices, force_scaling,  assembly, prescribed_conditions, 
+    system_mass_matrix!(jacob, x, indices, two_dimensional, force_scaling,  assembly, prescribed_conditions, 
         point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates.
 """
-function system_mass_matrix!(jacob, x, indices, force_scaling, assembly, 
+function system_mass_matrix!(jacob, x, indices, two_dimensional, force_scaling, assembly, 
     prescribed_conditions, point_masses; steady=false)
 
     jacob .= 0
 
     gamma = 1
 
-    system_mass_matrix!(jacob, gamma, x, indices, force_scaling,  assembly, 
+    system_mass_matrix!(jacob, gamma, x, indices, two_dimensional, force_scaling,  assembly, 
         prescribed_conditions, point_masses; steady=steady)
 
     return jacob
 end
 
 """
-    system_mass_matrix!(jacob, gamma, x, indices, force_scaling, assembly, 
+    system_mass_matrix!(jacob, gamma, x, indices, two_dimensional, force_scaling, assembly, 
         prescribed_conditions, point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates and 
 add the result multiplied by `gamma` to `jacob`.
 """
-function system_mass_matrix!(jacob, gamma, x, indices, force_scaling, assembly, 
+function system_mass_matrix!(jacob, gamma, x, indices, two_dimensional, force_scaling, assembly, 
     prescribed_conditions, point_masses; steady=false)
 
     if !steady
@@ -1289,13 +1345,13 @@ function system_mass_matrix!(jacob, gamma, x, indices, force_scaling, assembly,
     end
 
     for ipoint = 1:length(assembly.points)
-        mass_matrix_point_jacobian!(jacob, gamma, x, indices, force_scaling, assembly, ipoint, 
-            prescribed_conditions, point_masses)
+        mass_matrix_point_jacobian!(jacob, gamma, x, indices, two_dimensional, force_scaling, 
+            assembly, ipoint, prescribed_conditions, point_masses)
     end
     
     for ielem = 1:length(assembly.elements)
-        mass_matrix_element_jacobian!(jacob, gamma, x, indices, force_scaling, assembly, ielem, 
-            prescribed_conditions)
+        mass_matrix_element_jacobian!(jacob, gamma, x, indices, two_dimensional, force_scaling, 
+            assembly, ielem, prescribed_conditions)
     end
 
     return jacob
@@ -1303,6 +1359,7 @@ end
 
 """
     expanded_system_mass_matrix(system, assembly;
+        two_dimensional = false,
         prescribed_conditions=Dict{Int, PrescribedConditions}(), 
         point_masses=Dict{Int, PointMass}(),
         steady=false)
@@ -1311,52 +1368,53 @@ Calculate the jacobian of the residual expressions with respect to the state rat
 constant mass matrix system.
 """
 function expanded_system_mass_matrix(system, assembly;
+    two_dimensional=false,
     prescribed_conditions=Dict{Int, PrescribedConditions}(), 
     point_masses=Dict{Int, PointMass}(),
     steady=false)
 
-    @unpack expanded_indices, force_scaling = system
+    @unpack indices, force_scaling = system
 
     TF = eltype(system)
-    nx = expanded_indices.nstates
+    nx = system.indices.nstates
     jacob = spzeros(TF, nx, nx)
     gamma = -1
     pcond = typeof(prescribed_conditions) <: AbstractDict ? prescribed_conditions : prescribed_conditions(0)
     pmass = typeof(point_masses) <: AbstractDict ? point_masses : point_masses(0)
 
-    expanded_system_mass_matrix!(jacob, gamma, expanded_indices, force_scaling, assembly, 
+    expanded_system_mass_matrix!(jacob, gamma, system.indices, two_dimensional, force_scaling, assembly, 
         pcond, pmass; steady=steady) 
 
     return jacob
 end
 
 """
-    expanded_system_mass_matrix!(jacob, indices, force_scaling, assembly,
+    expanded_system_mass_matrix!(jacob, indices, two_dimensional, force_scaling, assembly,
         prescribed_conditions, point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates.
 """
-function expanded_system_mass_matrix!(jacob, indices, force_scaling, assembly, 
+function expanded_system_mass_matrix!(jacob, indices, two_dimensional, force_scaling, assembly, 
     prescribed_conditions, point_masses; steady=false)
 
     jacob .= 0
 
     gamma = 1
 
-    expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, assembly, 
+    expanded_system_mass_matrix!(jacob, gamma, indices, two_dimensional, force_scaling, assembly, 
         prescribed_conditions, point_masses; steady=steady)
 
     return jacob
 end
 
 """
-    expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, assembly, 
+    expanded_system_mass_matrix!(jacob, gamma, indices, two_dimensional, force_scaling, assembly, 
         prescribed_conditions, point_masses; steady=false)
 
 Calculate the jacobian of the residual expressions with respect to the state rates and 
 add the result multiplied by `gamma` to `jacob`.
 """
-function expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, assembly, 
+function expanded_system_mass_matrix!(jacob, gamma, indices, two_dimensional, force_scaling, assembly, 
     prescribed_conditions, point_masses; steady=false)
 
     if !steady
@@ -1364,16 +1422,42 @@ function expanded_system_mass_matrix!(jacob, gamma, indices, force_scaling, asse
     end
 
     for ipoint = 1:length(assembly.points)
-        expanded_mass_matrix_point_jacobian!(jacob, gamma, indices, force_scaling, assembly, 
-            ipoint, prescribed_conditions, point_masses)
+        expanded_mass_matrix_point_jacobian!(jacob, gamma, indices, two_dimensional, 
+            force_scaling, assembly, ipoint, prescribed_conditions, point_masses)
     end
     
     for ielem = 1:length(assembly.elements)
-        expanded_mass_matrix_element_jacobian!(jacob, gamma, indices, force_scaling, assembly, 
-            ielem, prescribed_conditions)
+        expanded_mass_matrix_element_jacobian!(jacob, gamma, indices, two_dimensional, 
+            force_scaling, assembly, ielem, prescribed_conditions)
     end
 
     return jacob
 end
 
+function two_dimensional_residual!(resid, x, indices)
 
+    for (irow, icol) in zip(1:6:length(x), 1:6:length(x))
+        resid[irow+2] = x[icol+2] # constrain linear component in z-direction to be zero
+        resid[irow+3] = x[icol+3] # constrain angular component in x-direction to be zero
+        resid[irow+4] = x[icol+4] # constrain angular component in y-direction to be zero
+    end
+
+    return resid
+end
+
+function two_dimensional_jacobian!(jacob, x, indices)
+
+    for (irow, icol) in zip(1:6:length(x), 1:6:length(x))
+        # constrain linear component in z-direction to be zero
+        jacob[irow+2,:] .= 0 
+        jacob[irow+2,icol+2] = 1 
+        # constrain angular component in x-direction to be zero
+        jacob[irow+3,:] .= 0 
+        jacob[irow+3,icol+3] = 1 
+        # constrain angular component in y-direction to be zero
+        jacob[irow+4,:] .= 0 
+        jacob[irow+4,icol+4] = 1 
+    end
+
+    return jacob
+end
