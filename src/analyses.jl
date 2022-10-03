@@ -476,6 +476,9 @@ function linearize!(system, assembly;
     ab_p = typeof(linear_acceleration) <: AbstractVector ? SVector{3}(linear_acceleration) : SVector{3}(linear_acceleration(first(time)))
     αb_p = typeof(angular_acceleration) <: AbstractVector ? SVector{3}(angular_acceleration) : SVector{3}(angular_acceleration(first(time)))
 
+    # update acceleration state variable indices
+    update_body_acceleration_indices!(system, pcond)
+
     if constant_mass_matrix
 
         # solve for the system stiffness matrix
@@ -1144,7 +1147,7 @@ function initial_condition_analysis!(system, assembly, t0;
     ab_p = typeof(linear_acceleration) <: AbstractVector ? SVector{3}(linear_acceleration) : SVector{3}(linear_acceleration(t0))
     αb_p = typeof(angular_acceleration) <: AbstractVector ? SVector{3}(angular_acceleration) : SVector{3}(angular_acceleration(t0))
 
-    # indices corresponding to rigid body acceleration state variables
+    # update acceleration state variable indices
     update_body_acceleration_indices!(system, pcond)
 
     # --- Determine whether Vdot and Ωdot may be found using the equilibrium equations --- #
@@ -1469,6 +1472,7 @@ function time_domain_analysis!(system::DynamicSystem, assembly, tvec;
     if isave in save
         pcond = typeof(prescribed_conditions) <: AbstractDict ?
             prescribed_conditions : prescribed_conditions(first(tvec))
+        update_body_acceleration_indices!(system, pcond)
         history[isave] = AssemblyState(system, assembly, prescribed_conditions=pcond)
         isave += 1
     end
@@ -1494,6 +1498,9 @@ function time_domain_analysis!(system::DynamicSystem, assembly, tvec;
         gvec = typeof(gravity) <: AbstractVector ? SVector{3}(gravity) : SVector{3}(gravity(tvec[it]))
         ab_p = typeof(linear_acceleration) <: AbstractVector ? SVector{3}(linear_acceleration) : SVector{3}(linear_acceleration(tvec[it]))
         αb_p = typeof(angular_acceleration) <: AbstractVector ? SVector{3}(angular_acceleration) : SVector{3}(angular_acceleration(tvec[it]))
+
+        # update acceleration state variable indices
+        update_body_acceleration_indices!(system, pcond)
 
         # initialization terms for the body frame
         ub, θb = body_displacement(x)
