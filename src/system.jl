@@ -133,18 +133,23 @@ end
 Updates the state variable indices corresponding to the body frame accelerations to 
 correspond to the provided prescribed conditions.
 """
-function update_body_acceleration_indices!(system, prescribed_conditions)
+function update_body_acceleration_indices!(system::AbstractSystem, prescribed_conditions)
+
+    return update_body_acceleration_indices!(system.indices, prescribed_conditions)
+end
+
+function update_body_acceleration_indices!(indices::SystemIndices, prescribed_conditions)
 
     for i = 1:6
-        ipoint = findfirst(p -> p.pl[i] & p.pd[i], prescribed_conditions)
+        ipoint = findfirst(p -> p.pl[i] && p.pd[i], prescribed_conditions)
         if isnothing(ipoint)
-            system.indices.icol_body[i] = 0
+            indices.icol_body[i] = 0
         else
-            system.indices.icol_body[i] = system.indices.icol_point[ipoint]+i-1
+            indices.icol_body[i] = indices.icol_point[ipoint]+i-1
         end
     end
 
-    return system
+    return indices
 end
 
 """
@@ -1039,7 +1044,7 @@ function steady_system_jacobian!(jacob, x, indices, two_dimensional, force_scali
     ub_p, θb_p, vb_p, ωb_p, ab_p, αb_p)
 
     jacob .= 0
-    
+   
     ab_p, αb_p = body_acceleration(x, indices.icol_body, ab_p, αb_p)
 
     steady_body_jacobian!(jacob, x, indices, ub_p, θb_p, vb_p, ωb_p)
