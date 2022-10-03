@@ -35,7 +35,7 @@ function body_acceleration(system::AbstractSystem, x=system.x;
     angular_acceleration=(@SVector zeros(3))
     )
 
-    return body_acceleration(x, system.indices.icol_indices, linear_acceleration, angular_acceleration)
+    return body_acceleration(x, system.indices.icol_body, linear_acceleration, angular_acceleration)
 end
 
 function body_acceleration(x, icol, ab=(@SVector zeros(3)), αb=(@SVector zeros(3)))

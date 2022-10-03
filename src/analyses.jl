@@ -371,8 +371,8 @@ function steady_state_analysis!(system::Union{DynamicSystem, ExpandedSystem}, as
             # update stored body frame rate variables
             system.ubdot = vb
             system.θbdot = Qinv*C*ωb
-            system.Vbdot = ab
-            system.Ωbdot = αb
+            system.vbdot = ab
+            system.ωbdot = αb
 
             # update stored point rate variables
             @unpack udot, θdot, Vdot, Ωdot = system
@@ -1236,8 +1236,8 @@ function initial_condition_analysis!(system, assembly, t0;
     # update stored body frame rate variables
     system.ubdot = vb
     system.θbdot = Qinv*C*ωb
-    system.Vbdot = ab
-    system.Ωbdot = αb
+    system.vbdot = ab
+    system.ωbdot = αb
 
     # --- Save state and rate variables associated with each point --- #
 
